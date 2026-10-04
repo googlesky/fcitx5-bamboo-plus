@@ -878,9 +878,11 @@ public:
         const auto committed = commitBuffer();
         const auto &surroundingText = ic_->surroundingText();
         std::string text;
+        bool replacedSelection = false;
         convertDelete_ = 0;
         if (fresh && textKnown()) {
             if (surroundingText.cursor() != surroundingText.anchor()) {
+                replacedSelection = !committed.empty();
                 const auto low = std::min(surroundingText.cursor(),
                                           surroundingText.anchor());
                 const auto high = std::max(surroundingText.cursor(),
@@ -919,8 +921,12 @@ public:
         if (text.empty() || convertDelete_ > 100) {
             text.clear();
             convertDelete_ = 0;
-            if (auto *clipboard = engine_->clipboard()) {
-                text = clipboard->call<IClipboard::primary>(ic_);
+            // It still holds the selection our commit just replaced.
+            if (!replacedSelection) {
+                FCITX_BAMBOO_DEBUG() << "converting the primary selection";
+                if (auto *clipboard = engine_->clipboard()) {
+                    text = clipboard->call<IClipboard::primary>(ic_);
+                }
             }
         }
         // Keys wait while converting: a whole document would freeze them.

@@ -951,6 +951,40 @@ void testConvert(Instance *instance) {
         qt.selectBack(3);
         FCITX_ASSERT(qt.press(convertKey) && !qt.inputPanel().candidateList());
     }
+    {
+        // Our commit of a pending word replaces a selection reported
+        // earlier: the primary selection, still holding what we replaced,
+        // must not be offered too.
+        FakeEditor pending(instance, "testapp", PreeditCaps);
+        pending.replaceText("abc def");
+        pending.type(" vieejt");
+        pending.selectBack(4);
+        pending.setReportSurrounding(false);
+        std::ostringstream log;
+        Log::setLogStream(log);
+        const bool filtered = pending.press(convertKey);
+        Log::setLogStream(std::cerr);
+        FCITX_ASSERT(filtered);
+        FCITX_ASSERT(!pending.inputPanel().candidateList());
+        FCITX_ASSERT(pending.text() == "abc việt") << pending.text();
+        FCITX_ASSERT(log.str().find("converting the primary selection") ==
+                     std::string::npos)
+            << log.str();
+    }
+    {
+        // Nothing known of the text still tries the primary selection.
+        FakeEditor bare(instance, "testapp", CapabilityFlag::Preedit);
+        bare.replaceText("123");
+        std::ostringstream log;
+        Log::setLogStream(log);
+        const bool filtered = bare.press(convertKey);
+        Log::setLogStream(std::cerr);
+        FCITX_ASSERT(filtered);
+        FCITX_ASSERT(!bare.inputPanel().candidateList());
+        FCITX_ASSERT(log.str().find("converting the primary selection") !=
+                     std::string::npos)
+            << log.str();
+    }
 }
 
 // Surrounding Text mode never underlines the word being typed.
