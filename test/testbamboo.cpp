@@ -146,6 +146,16 @@ public:
             capabilityFlags().unset(CapabilityFlag::SurroundingText));
     }
 
+    // Text after the cursor the application does not select: a Multiline
+    // field reporting more of its paragraph than what selectBack selected.
+    void setTextAfterCursor(const std::string &text) {
+        after_.clear();
+        for (auto c : utf8::MakeUTF8CharRange(text)) {
+            after_.push_back(c);
+        }
+        syncSurrounding();
+    }
+
     // Like an application reporting its text late, if at all.
     void setReportSurrounding(bool report) { reportSurrounding_ = report; }
     void report() { syncSurrounding(); }
@@ -259,7 +269,11 @@ private:
             if (anchor_ < text_.size()) {
                 anchor = anchor_;
             }
-            surroundingText().setText(text(), text_.size(), anchor);
+            std::string full = text();
+            for (auto c : after_) {
+                full += utf8::UCS4ToUTF8(c);
+            }
+            surroundingText().setText(full, text_.size(), anchor);
             updateSurroundingText();
         }
     }
@@ -268,6 +282,7 @@ private:
     std::vector<uint32_t> text_;
     std::vector<uint32_t> suggestion_; // selected after the cursor
     std::vector<uint32_t> completion_;
+    std::vector<uint32_t> after_; // unselected, after the cursor
     size_t anchor_ = NoSelection;
     size_t longestCommit_ = 0;
     int forwardedKeys_ = 0;
@@ -711,6 +726,33 @@ void testCapitalizeSentences(Instance *instance) {
         FCITX_ASSERT(editor.text() == "Vnexpress.net ") << editor.text();
     }
     {
+        // fcitx5-qt drops SurroundingText before every key: a Qt field's
+        // own report after a click still tells capitalize() the text.
+        FakeEditor editor(instance, "testapp",
+                          CapabilityFlags{CapabilityFlag::Preedit,
+                                          CapabilityFlag::GetIMInfoOnFocus},
+                          true, "dbus");
+        editor.replaceText("abc. ");
+        editor.focusQt(true);
+        editor.type("x");
+        FCITX_ASSERT(editor.preedit() == "X") << editor.preedit();
+    }
+    {
+        // Focus going to another field of the window while another input
+        // method types: the text known is the old field's.
+        FakeEditor editor(instance, "testapp",
+                          CapabilityFlags{CapabilityFlag::Preedit,
+                                          CapabilityFlag::GetIMInfoOnFocus},
+                          true, "dbus");
+        editor.replaceText("abc. ");
+        editor.focusQt(true);
+        instance->setCurrentInputMethod(&editor, "keyboard-us", true);
+        editor.focusQt(false);
+        instance->setCurrentInputMethod(&editor, "bamboo", true);
+        editor.type("y");
+        FCITX_ASSERT(editor.preedit() == "y") << editor.preedit();
+    }
+    {
         // Without its text, keys tell a sentence start, not a field start.
         FakeEditor editor(instance, "testapp",
                           CapabilityFlags{CapabilityFlag::Preedit});
@@ -849,6 +891,66 @@ void testConvert(Instance *instance) {
     FCITX_ASSERT(editor.press(convertKey) && list());
     editor.press(Key(FcitxKey_2));
     FCITX_ASSERT(editor.text() == "123 VIỆT") << editor.text();
+    {
+        // fcitx5-qt drops SurroundingText before every key: a single-line
+        // Qt field's own report still lets the selection convert.
+        FakeEditor qt(instance, "testapp",
+                      PreeditCaps | CapabilityFlag::GetIMInfoOnFocus, true,
+                      "dbus");
+        qt.replaceText("viet nam");
+        qt.focusQt(true);
+        qt.selectBack(3);
+        FCITX_ASSERT(qt.press(convertKey) && qt.inputPanel().candidateList());
+        FCITX_ASSERT(qt.press(Key(FcitxKey_1)));
+        FCITX_ASSERT(qt.text() == "viet NAM") << qt.text();
+    }
+    {
+        // The word before the cursor still needs the capability itself:
+        // fcitx5-qt drops deletions sent while handling a key.
+        FakeEditor qt(instance, "testapp",
+                      PreeditCaps | CapabilityFlag::GetIMInfoOnFocus, true,
+                      "dbus");
+        qt.replaceText("viet");
+        qt.focusQt(true);
+        FCITX_ASSERT(qt.press(convertKey) && !qt.inputPanel().candidateList());
+        FCITX_ASSERT(qt.text() == "viet") << qt.text();
+    }
+    {
+        // fcitx5-qt reports a Multiline field's current paragraph only, and
+        // maps a selection reaching its end to the end of what it reports
+        // (QString::left clamps): such a selection may be only part of the
+        // real one, so it is not used.
+        FakeEditor qt(instance, "testapp",
+                      PreeditCaps | CapabilityFlag::GetIMInfoOnFocus |
+                          CapabilityFlag::Multiline,
+                      true, "dbus");
+        qt.replaceText("abc def");
+        qt.focusQt(true);
+        qt.selectBack(3);
+        FCITX_ASSERT(qt.press(convertKey) && !qt.inputPanel().candidateList());
+        FCITX_ASSERT(qt.text() == "abc def") << qt.text();
+    }
+    {
+        // A Multiline selection strictly inside the reported text converts.
+        FakeEditor qt(instance, "testapp",
+                      PreeditCaps | CapabilityFlag::GetIMInfoOnFocus |
+                          CapabilityFlag::Multiline,
+                      true, "dbus");
+        qt.replaceText("abc ghi");
+        qt.focusQt(true);
+        qt.selectBack(3);
+        qt.setTextAfterCursor(" jkl");
+        FCITX_ASSERT(qt.press(convertKey));
+        auto candidates = qt.inputPanel().candidateList();
+        FCITX_ASSERT(candidates &&
+                     candidates->candidate(0).text().toString() == "GHI")
+            << (candidates ? candidates->size() : 0);
+        qt.press(Key(FcitxKey_Escape));
+        // Nor one from the start of the reported text.
+        qt.replaceText("ghi");
+        qt.selectBack(3);
+        FCITX_ASSERT(qt.press(convertKey) && !qt.inputPanel().candidateList());
+    }
 }
 
 // Surrounding Text mode never underlines the word being typed.

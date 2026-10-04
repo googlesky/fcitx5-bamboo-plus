@@ -109,7 +109,9 @@ Method Window for any.
 - `Control+Shift+F6` converts the selection, else the word before the cursor,
   else the primary selection, like UniKey's toolkit: typed again with the
   input method (for text typed with it off), without diacritics, upper or
-  lower case, capitalized words, or from a legacy charset.
+  lower case, capitalized words, or from a legacy charset. Qt applications
+  take no deletion while a key is handled: there the word before the cursor
+  is left out.
 
 Fcitx 5 has the rest of ibus-bamboo: Unicode input with `Control+Shift+U`,
 emoji and character search with `Control+Alt+Shift+U`, and its trigger key to

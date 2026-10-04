@@ -549,6 +549,16 @@ public:
     // one per window with fcitx5-qt: never cleared, see
     // BambooEngine::isQtTerminal.
     bool hintedTextReported() const { return hintedTextReported_; }
+    // True when the application's text is known: fcitx5-qt drops the
+    // SurroundingText capability before every key, but its last report
+    // stays current once the focused field has made one.
+    bool textKnown() const {
+        const auto flags = ic_->capabilityFlags();
+        return ic_->surroundingText().isValid() &&
+               (flags.test(CapabilityFlag::SurroundingText) ||
+                (flags.test(CapabilityFlag::GetIMInfoOnFocus) &&
+                 textReported_));
+    }
     void focusIn() {
         textReported_ = false;
         labelShown();
@@ -869,15 +879,32 @@ public:
         const auto &surroundingText = ic_->surroundingText();
         std::string text;
         convertDelete_ = 0;
-        if (fresh &&
-            ic_->capabilityFlags().test(CapabilityFlag::SurroundingText) &&
-            surroundingText.isValid()) {
+        if (fresh && textKnown()) {
             if (surroundingText.cursor() != surroundingText.anchor()) {
+                const auto low = std::min(surroundingText.cursor(),
+                                          surroundingText.anchor());
+                const auto high = std::max(surroundingText.cursor(),
+                                           surroundingText.anchor());
+                // fcitx5-qt reports a Multiline field's current paragraph
+                // only, and maps a selection end past it to the paragraph's
+                // end (QString::left clamps), other widgets maybe to its
+                // start: such a selection may be only part of the real one,
+                // left to the primary selection below.
+                const bool paragraphClamped =
+                    ic_->capabilityFlags().test(
+                        CapabilityFlags{CapabilityFlag::GetIMInfoOnFocus,
+                                        CapabilityFlag::Multiline}) &&
+                    (low == 0 || high >= utf8::length(surroundingText.text()));
                 // Our commit replaced it.
-                if (committed.empty()) {
+                if (committed.empty() && !paragraphClamped) {
                     text = surroundingText.selectedText();
                 }
-            } else if (!ic_->frontendName().starts_with("wayland")) {
+            } else if (ic_->capabilityFlags().test(
+                           CapabilityFlag::SurroundingText) &&
+                       !ic_->frontendName().starts_with("wayland")) {
+                // fcitx5-qt drops a deletion sent while handling a key, so
+                // this still needs the capability itself: a known text is
+                // not enough to risk deleting the word.
                 // Wayland frontends delete through a copy of the text that
                 // may lag. This is the text as the application shows it once
                 // it has our commit, unless it reported its text already.
@@ -1064,11 +1091,9 @@ private:
             EngineIsTypingKey(bambooEngine_.handle(), sym, states)) {
             return false;
         }
-        const auto &surroundingText = ic_->surroundingText();
-        if (fresh &&
-            ic_->capabilityFlags().test(CapabilityFlag::SurroundingText) &&
-            surroundingText.isValid() &&
-            surroundingText.cursor() == surroundingText.anchor()) {
+        if (fresh && textKnown() &&
+            ic_->surroundingText().cursor() ==
+                ic_->surroundingText().anchor()) {
             return startsSentence(textBeforeCursor());
         }
         return sentenceKeys_ == SentenceKeys::Start;
