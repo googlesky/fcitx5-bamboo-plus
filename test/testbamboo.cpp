@@ -1758,6 +1758,19 @@ void testTypingModes(Instance *instance) {
         FCITX_ASSERT(editor.preedit().empty()) << editor.preedit();
     }
     {
+        // A user-name field reports once on a click: a later window switch
+        // (no report) must not take it for a terminal, Konsole's hints
+        // notwithstanding.
+        FakeEditor editor(instance, "backspace", qtTerminal, true, "dbus");
+        editor.focusQt(true);
+        editor.type("vieetj ");
+        FCITX_ASSERT(editor.text() == "việt ") << editor.text();
+        editor.focusQt(false);
+        editor.type("vieetj");
+        FCITX_ASSERT(editor.preedit() == "việt") << editor.preedit();
+        FCITX_ASSERT(editor.text() == "việt ") << editor.text();
+    }
+    {
         // An address bar's suggestion shows in the report only: it gets
         // Surrounding Text, which waits for it.
         FakeEditor editor(instance, "backspace",
@@ -1964,16 +1977,36 @@ void testKindModes(Instance *instance) {
     }
     {
         // As a Qt field reports its text after focus, the kind it is taken
-        // for and the label change.
+        // for and the label change; a later focus with no report keeps them.
         StatusUpdates updates(instance);
         FakeEditor editor(instance, "kindlabel",
                           qt | CapabilityFlag::NoAutoUpperCase |
                               CapabilityFlag::NoSpellCheck,
-                          true, "dbus");
-        editor.focusQt(true);
-        FCITX_ASSERT(mode(editor) == "Telex (Plain Preedit)") << mode(editor);
+                          false, "dbus");
         editor.focusQt(false);
         FCITX_ASSERT(mode(editor) == "Telex (BackSpace)") << mode(editor);
+        editor.setReportSurrounding(true);
+        updates.count = 0;
+        editor.report();
+        FCITX_ASSERT(mode(editor) == "Telex (Plain Preedit)") << mode(editor);
+        FCITX_ASSERT(updates.count == 1) << updates.count;
+        editor.focusQt(false);
+        FCITX_ASSERT(mode(editor) == "Telex (Plain Preedit)") << mode(editor);
+    }
+    {
+        // Konsole's search bar reported its text, then its terminal gets
+        // focus: the label the panel asks for then is the terminal's.
+        StatusUpdates updates(instance);
+        FakeEditor editor(instance, "kindlabel", qt, true, "dbus");
+        editor.focusQt(true);
+        FCITX_ASSERT(mode(editor) == "Telex (Plain Preedit)") << mode(editor);
+        editor.setCapabilityFlags(qt | CapabilityFlag::NoAutoUpperCase |
+                                  CapabilityFlag::NoSpellCheck);
+        editor.setReportSurrounding(false);
+        editor.focusQt(false);
+        FCITX_ASSERT(mode(editor) == "Telex (BackSpace)") << mode(editor);
+        // Were it ever to report, the label would change again.
+        editor.setReportSurrounding(true);
         updates.count = 0;
         editor.report();
         FCITX_ASSERT(mode(editor) == "Telex (Plain Preedit)") << mode(editor);

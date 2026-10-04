@@ -56,10 +56,11 @@ current application (press it twice to type `~`):
    `Exec=env FCITX_QT_USE_SYNC=1 konsole` in a copy of its desktop file, or
    fcitx5-qt hands it other keys late, a word typed right after Return
    possibly before it. A Qt field asking for neither capitals nor
-   predictions, such as a user name, counts as a terminal until it reports
-   its text, which Qt Widgets do on a click: after a window switch the first
-   letter typed there goes in alone. Other Qt applications get plain
-   preedit, the rest the word in Fcitx's window.
+   predictions, such as a user name, counts as a terminal until such a
+   field of its window reports its text, which Qt Widgets do on a click:
+   before that, after a window switch, the first letter typed there goes
+   in alone. Other Qt applications get plain preedit, the rest the word in
+   Fcitx's window.
 6. **Exclude**: no Vietnamese in this application.
 
 The default mode, the modes per application and the key are in the

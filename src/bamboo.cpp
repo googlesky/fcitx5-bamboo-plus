@@ -258,6 +258,15 @@ public:
     }
     bool passwordField() const { return passwordField(ic_->capabilityFlags()); }
 
+    // What Konsole's TerminalDisplay asks for: neither capitals nor
+    // predictions. Password and URL fields ask the same.
+    static bool terminalHints(CapabilityFlags flags) {
+        return flags.test(CapabilityFlag::NoAutoUpperCase) &&
+               flags.test(CapabilityFlag::NoSpellCheck) &&
+               !flags.testAny(CapabilityFlag::PasswordOrSensitive) &&
+               !flags.test(CapabilityFlag::Url);
+    }
+
     // Addresses and numbers are never Vietnamese. URL fields are left alone:
     // browsers' address bars are searched in Vietnamese. Password fields get
     // the keys as typed, as fcitx5 gives them unless told otherwise.
@@ -536,6 +545,10 @@ public:
     // Whether the focused field reported its text since it got focus, see
     // BambooEngine::isQtTerminal.
     bool textReported() const { return textReported_; }
+    // A field with Konsole's hints reported its text in this input context,
+    // one per window with fcitx5-qt: never cleared, see
+    // BambooEngine::isQtTerminal.
+    bool hintedTextReported() const { return hintedTextReported_; }
     void focusIn() {
         textReported_ = false;
         labelShown();
@@ -544,6 +557,9 @@ public:
     void surroundingTextUpdated() {
         surroundingFresh_ = true;
         textReported_ = true;
+        if (terminalHints(ic_->capabilityFlags())) {
+            hintedTextReported_ = true;
+        }
         if (processing_ || releasing_ || !bambooEngine_) {
             return;
         }
@@ -1251,6 +1267,7 @@ private:
     bool surroundingFresh_ = false;
     bool lastKeyToApp_ = true;
     bool textReported_ = false;
+    bool hintedTextReported_ = false;
     // The input method's name with the typing mode and what it does, as the
     // label last told them, see currentLabel.
     std::tuple<std::string, BambooInputMode, BambooInputMode> label_;
@@ -1532,19 +1549,18 @@ BambooInputMode BambooEngine::inputMode(InputContext *ic) const {
 
 // fcitx5-qt drops the SurroundingText flag before every key, the text
 // comes with the next report: on a change, or as a field gets focus (Qt
-// Widgets on a click or Tab, not on a window switch). Konsole reports none
-// and asks for neither capitals nor predictions, password and URL fields too.
+// Widgets on a click or Tab, not on a window switch). Konsole reports none,
+// see BambooState::terminalHints: a field with its hints counts as a
+// terminal until it, or another such field of its window, reports its text.
 bool BambooEngine::isQtTerminal(InputContext *ic) const {
     const auto flags = ic->capabilityFlags();
     if (!flags.test(CapabilityFlag::GetIMInfoOnFocus)) {
         return false;
     }
+    auto *state = ic->propertyFor(&factory_);
     return isTerminal(ic) ||
-           (!ic->propertyFor(&factory_)->textReported() &&
-            flags.test(CapabilityFlag::NoAutoUpperCase) &&
-            flags.test(CapabilityFlag::NoSpellCheck) &&
-            !flags.testAny(CapabilityFlag::PasswordOrSensitive) &&
-            !flags.test(CapabilityFlag::Url));
+           (!state->textReported() && !state->hintedTextReported() &&
+            BambooState::terminalHints(flags));
 }
 
 bool BambooEngine::isTerminal(const InputContext *ic) const {
