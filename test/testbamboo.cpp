@@ -946,10 +946,15 @@ void testConvert(Instance *instance) {
                      candidates->candidate(0).text().toString() == "GHI")
             << (candidates ? candidates->size() : 0);
         qt.press(Key(FcitxKey_Escape));
-        // Nor one from the start of the reported text.
+        // One from the start of the reported text too.
         qt.replaceText("ghi");
         qt.selectBack(3);
-        FCITX_ASSERT(qt.press(convertKey) && !qt.inputPanel().candidateList());
+        FCITX_ASSERT(qt.press(convertKey));
+        candidates = qt.inputPanel().candidateList();
+        FCITX_ASSERT(candidates &&
+                     candidates->candidate(0).text().toString() == "GHI")
+            << (candidates ? candidates->size() : 0);
+        qt.press(Key(FcitxKey_Escape));
     }
     {
         // Our commit of a pending word replaces a selection reported
@@ -1870,7 +1875,7 @@ void testTypingModes(Instance *instance) {
         // reported their text since they got focus, or that ask for
         // capitals or predictions, the text unreported after a window
         // switch. URL fields too, Konsole's hints notwithstanding.
-        FakeEditor editor(instance, "backspace", caps, true, "dbus");
+        FakeEditor editor(instance, "backspace", caps, report, "dbus");
         editor.focusQt(report);
         editor.type("vieetj");
         FCITX_ASSERT(editor.preedit() == "việt")

@@ -883,20 +883,18 @@ public:
         if (fresh && textKnown()) {
             if (surroundingText.cursor() != surroundingText.anchor()) {
                 replacedSelection = !committed.empty();
-                const auto low = std::min(surroundingText.cursor(),
-                                          surroundingText.anchor());
                 const auto high = std::max(surroundingText.cursor(),
                                            surroundingText.anchor());
                 // fcitx5-qt reports a Multiline field's current paragraph
-                // only, and maps a selection end past it to the paragraph's
-                // end (QString::left clamps), other widgets maybe to its
-                // start: such a selection may be only part of the real one,
-                // left to the primary selection below.
+                // only, and maps a selection end outside it, in either
+                // direction, to the paragraph's end (QString::left clamps):
+                // such a selection may be only part of the real one, left to
+                // the primary selection below.
                 const bool paragraphClamped =
                     ic_->capabilityFlags().test(
                         CapabilityFlags{CapabilityFlag::GetIMInfoOnFocus,
                                         CapabilityFlag::Multiline}) &&
-                    (low == 0 || high >= utf8::length(surroundingText.text()));
+                    high >= utf8::length(surroundingText.text());
                 // Our commit replaced it.
                 if (committed.empty() && !paragraphClamped) {
                     text = surroundingText.selectedText();
