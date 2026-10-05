@@ -77,8 +77,11 @@ public:
         KeyEvent event(this, key);
         const bool filtered = keyEvent(event);
         pressing_ = false;
+        // Like fcitx5-qt, a modifier pressed alone changes nothing: no
+        // report follows it.
+        const bool reports = !qt_ || !key.isModifier();
         if (filtered) {
-            if (qt_) {
+            if (qt_ && reports) {
                 syncSurrounding();
             }
             return true;
@@ -102,7 +105,9 @@ public:
                 suggest();
             }
         }
-        syncSurrounding();
+        if (reports) {
+            syncSurrounding();
+        }
         return false;
     }
 
@@ -766,6 +771,17 @@ void testCapitalizeSentences(Instance *instance) {
         FCITX_ASSERT(editor.text() == "abc. Hey ghi. jkl ") << editor.text();
     }
     {
+        // A lone modifier must not forget the sentence keys kept: nothing
+        // of the field is known here, only the keys tell a sentence start.
+        FakeEditor editor(instance, "testapp",
+                          CapabilityFlags{CapabilityFlag::Preedit});
+        editor.type("abc. ");
+        editor.press(Key(FcitxKey_Control_L));
+        editor.type("x");
+        FCITX_ASSERT(editor.text() + editor.preedit() == "abc. X")
+            << editor.text() + editor.preedit();
+    }
+    {
         // A text reported late is not trusted.
         FakeEditor editor(instance, "testapp", PreeditCaps);
         editor.type("abc. ");
@@ -900,6 +916,21 @@ void testConvert(Instance *instance) {
         qt.replaceText("viet nam");
         qt.focusQt(true);
         qt.selectBack(3);
+        FCITX_ASSERT(qt.press(convertKey) && qt.inputPanel().candidateList());
+        FCITX_ASSERT(qt.press(Key(FcitxKey_1)));
+        FCITX_ASSERT(qt.text() == "viet NAM") << qt.text();
+    }
+    {
+        // The convert key's Control, pressed alone first as it is to type
+        // Control+Shift+F6, must not mark the text stale: fcitx5-qt reports
+        // nothing for it, the selection must still convert.
+        FakeEditor qt(instance, "testapp",
+                      PreeditCaps | CapabilityFlag::GetIMInfoOnFocus, true,
+                      "dbus");
+        qt.replaceText("viet nam");
+        qt.focusQt(true);
+        qt.selectBack(3);
+        qt.press(Key(FcitxKey_Control_L));
         FCITX_ASSERT(qt.press(convertKey) && qt.inputPanel().candidateList());
         FCITX_ASSERT(qt.press(Key(FcitxKey_1)));
         FCITX_ASSERT(qt.text() == "viet NAM") << qt.text();

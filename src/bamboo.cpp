@@ -442,6 +442,12 @@ public:
         if (!handled) {
             return false;
         }
+        // A modifier pressed alone (the convert key's Control, held before
+        // its Shift+F6) changes no text: the text stays as fresh as it
+        // was, and the separator and sentence keys stay too.
+        if (keyEvent.key().isModifier() && !keyEvent.filtered()) {
+            return true;
+        }
         if (!keyEvent.filtered()) {
             surroundingFresh_ = false;
             if (surroundingWord().empty() && !lastLetter) {

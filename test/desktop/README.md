@@ -1,10 +1,11 @@
 # Typing into real applications
 
 `desktop_test.py` types VNI into Chrome, Chrome's address bar, a GTK entry,
-Qt Quick fields, a Qt Widgets field and a terminal application in Alacritty
-and in Konsole, through a nested KWin with fcitx5 as its input method, and
-checks the text they get. Keys come fast and overlap, like a person rolling
-them: 40 down to 5 ms apart.
+Qt Quick fields, a Qt Widgets field, its convert key and sentence
+capitalization, and a terminal application in Alacritty and in Konsole,
+through a nested KWin with fcitx5 as its input method, and checks the text
+they get. Keys come fast and overlap, like a person rolling them: 40 down to
+5 ms apart.
 
 It is what found these bugs, which the unit tests model where they can:
 
@@ -23,6 +24,9 @@ It is what found these bugs, which the unit tests model where they can:
 - fcitx5-qt drops the surrounding text capability before every key: Qt
   fields in the BackSpace mode were taken for terminals, DEL characters typed
   into them.
+- A modifier pressed alone, the convert key's Control, marked the
+  application's text stale: fcitx5-qt reports none then, and the convert
+  key took the primary selection instead of the field's.
 
 Nothing reaches the desktop: KWin renders to a virtual output and runs on a
 D-Bus of its own, fcitx5 gets a configuration of its own, Chrome a profile of

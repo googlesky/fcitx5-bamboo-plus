@@ -40,6 +40,7 @@ CODES.update({c: k for c, k in zip("asdfghjkl", range(30, 39))})
 CODES.update({c: k for c, k in zip("zxcvbnm", range(44, 51))})
 CODES[" "] = 57
 SHIFT, CTRL, L, RETURN, TAB = 42, 29, 38, 28, 15
+END, LEFT, F6 = 107, 105, 64
 
 FCITX_PROFILE = """[Groups/0]
 Name=Default
@@ -135,12 +136,14 @@ def key_events(text, gap, hold, jitter, rng):
 class Session:
     """A private D-Bus, KWin on a virtual output, fcitx5 its input method."""
 
-    def __init__(self, work, addon_dir):
+    def __init__(self, work, addon_dir, fcitx_extra="", bamboo_extra=""):
         self.work = work
         self.addon_dir = addon_dir
         self.processes = []
         self.bus_pid = None
         self.app_modes = dict(APP_MODES)
+        self.fcitx_extra = fcitx_extra
+        self.bamboo_extra = bamboo_extra
 
     def __enter__(self):
         os.makedirs(self.work)
@@ -148,8 +151,8 @@ class Session:
         os.makedirs(os.path.join(config, "conf"), exist_ok=True)
         for name, text in [
             ("profile", FCITX_PROFILE),
-            ("config", FCITX_CONFIG),
-            ("conf/bamboo.conf", BAMBOO_CONFIG),
+            ("config", FCITX_CONFIG + self.fcitx_extra),
+            ("conf/bamboo.conf", BAMBOO_CONFIG + self.bamboo_extra),
         ]:
             with open(os.path.join(config, name), "w") as f:
                 f.write(text)
@@ -566,6 +569,58 @@ def test_kdialog(session, runs):
     ], runs, attempt) + check_methods(session, "kdialog", "kdialog", mark, {PLAIN_PREEDIT})
 
 
+def test_qt_text(session, runs):
+    """A Qt Widgets field through fcitx5-qt, which drops the surrounding
+    text capability before every key, its text read all the same: a
+    sentence is capitalized from it after a cursor move, and the convert
+    key takes its selection, the key's Control, pressed alone first, not
+    marking the text stale. The session disables the clipboard addon, so
+    only the reported selection can convert, and turns CapitalizeSentences
+    on."""
+
+    def capitalize(keys, speed, rng):
+        app = subprocess.Popen(["kdialog", "--inputbox", "test", "Hello. "],
+                               env=session.env, stdout=subprocess.PIPE,
+                               stderr=subprocess.DEVNULL, text=True)
+        session.wait_focus("kdialog")
+        session.keys([f"d{END}", "w30", f"u{END}", "w200"] + key_events(keys, *speed, rng)
+                     + ["w300", f"d{RETURN}", "w30", f"u{RETURN}"])
+        try:
+            return app.communicate(timeout=5)[0].rstrip()
+        except subprocess.TimeoutExpired:
+            app.kill()
+            app.wait()
+            return None
+
+    def convert(keys, speed, rng):
+        app = subprocess.Popen(["kdialog", "--inputbox", "test", "chao viet65"],
+                               env=session.env, stdout=subprocess.PIPE,
+                               stderr=subprocess.DEVNULL, text=True)
+        session.wait_focus("kdialog")
+        # Select "viet65", then the convert key: Control pressed alone
+        # first, as it is on the way to Control+Shift+F6.
+        events = [f"d{END}", "w30", f"u{END}", "w200", f"d{SHIFT}"]
+        for _ in range(6):
+            events += ["w40", f"d{LEFT}", "w20", f"u{LEFT}"]
+        events += [f"u{SHIFT}", "w200",
+                   f"d{CTRL}", "w30", f"d{SHIFT}", "w30", f"d{F6}", "w20", f"u{F6}",
+                   "w30", f"u{SHIFT}", "w30", f"u{CTRL}", "w300",
+                   # Takes the first conversion, the input method's retype.
+                   f"d{RETURN}", "w30", f"u{RETURN}", "w300",
+                   # Closes the dialog.
+                   f"d{RETURN}", "w30", f"u{RETURN}"]
+        session.keys(events)
+        try:
+            return app.communicate(timeout=5)[0].rstrip()
+        except subprocess.TimeoutExpired:
+            app.kill()
+            app.wait()
+            return None
+
+    return (run_cases("qt-text capitalize", [("x ", "Hello. X")], runs, capitalize)
+            + run_cases("qt-text convert", [("", "chao việt")], runs, convert))
+
+
 def type_into_terminal(session, runs, name, program, terminal):
     """Types into an application setting Claude Code's terminal modes, in
     tmux, in a terminal started with the command line terminal: the text
@@ -620,7 +675,14 @@ def test_konsole(session, runs):
 
 TESTS = {"chrome": test_chrome, "omnibox": test_omnibox,
          "chrome-backspace": test_chrome_backspace, "gtk": test_gtk, "qtquick": test_qtquick,
-         "kdialog": test_kdialog, "terminal": test_terminal, "konsole": test_konsole}
+         "kdialog": test_kdialog, "qt-text": test_qt_text, "terminal": test_terminal,
+         "konsole": test_konsole}
+
+# Extra configuration some tests need, appended to FCITX_CONFIG / BAMBOO_CONFIG.
+SESSION_OPTIONS = {
+    "qt-text": dict(fcitx_extra="\n[Behavior/DisabledAddons]\n0=clipboard\n",
+                    bamboo_extra="CapitalizeSentences=True\n"),
+}
 
 
 def main():
@@ -637,7 +699,8 @@ def main():
     failures = 0
     try:
         for name in args.tests or TESTS:
-            with Session(os.path.join(work, name), args.addon_dir) as session:
+            with Session(os.path.join(work, name), args.addon_dir,
+                         **SESSION_OPTIONS.get(name, {})) as session:
                 failures += TESTS[name](session, args.runs)
     finally:
         if args.keep:
