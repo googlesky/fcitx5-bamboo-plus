@@ -155,7 +155,11 @@ ibus-bamboo: macros, dictionary spell check and underline are off.
 On KDE Plasma Wayland, choose Fcitx 5 as the virtual keyboard in System
 Settings, and run Chromium and Electron applications on Wayland
 (`--ozone-platform=wayland --enable-wayland-ime`) to type in them without
-underline.
+underline. Old Electron builds speak only text input v1, which KWin does not
+give them: Electron 22, which Zalo for Linux bundles, gets no input method on
+Wayland. On XWayland Chromium tells input methods nothing of its text and
+underlines any preedit: the word shows in Fcitx's window, or underlined in
+the Preedit mode.
 
 ## Development
 
