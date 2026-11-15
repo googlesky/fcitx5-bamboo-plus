@@ -207,7 +207,7 @@ func (e *FcitxBambooEngine) updatePreedit(processedStr string) {
 }
 
 func (e *FcitxBambooEngine) getBambooInputMode() bamboo.Mode {
-	if e.shouldFallbackToEnglish(false) {
+	if e.englishWord || e.shouldFallbackToEnglish(false) {
 		return bamboo.EnglishMode
 	}
 	return bamboo.VietnameseMode

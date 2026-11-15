@@ -20,7 +20,7 @@ func newMacroTable(entries [][2]string) *MacroTable {
 	var table = &MacroTable{mTable: map[string]string{}, lTable: map[string]string{}}
 	for _, entry := range entries {
 		var key = strings.TrimSpace(entry[0])
-		if key == "" || entry[1] == "" {
+		if key == "" || entry[1] == "" || strings.ContainsAny(key, " \t\n") {
 			continue
 		}
 		table.mTable[key] = entry[1]

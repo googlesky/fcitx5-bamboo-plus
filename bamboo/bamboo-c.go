@@ -243,12 +243,18 @@ func NewCustomEngine(definition **C.char, dictHandle uintptr, tableHandle uintpt
 
 	i := 0
 	for def[i] != nil {
-		definitions["Custom"][C.GoString(def[i])] = C.GoString(def[i+1])
+		addCustomKey(definitions["Custom"], C.GoString(def[i]), C.GoString(def[i+1]))
 		i += 2
 	}
 
 	var inputMethod = bamboo.ParseInputMethod(definitions, "Custom")
 	return uintptr(cgo.NewHandle(newFcitxBambooEngine(inputMethod, *dict, table)))
+}
+
+func addCustomKey(def bamboo.InputMethodDefinition, key, value string) {
+	if key = strings.ToLower(strings.TrimSpace(key)); key != "" {
+		def[key] = value
+	}
 }
 
 //export NewMacroTable
