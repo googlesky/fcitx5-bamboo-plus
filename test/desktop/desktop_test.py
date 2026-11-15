@@ -292,15 +292,16 @@ class Session:
                 f.read()))
 
     def wait_focus(self, program, timeout=30):
-        """Waits until fcitx5 has the focused input context of program: on a
-        loaded machine applications take seconds to start."""
+        """Waits until fcitx5 has the focused input context of program, a
+        regular expression: on a loaded machine applications take seconds to
+        start."""
         deadline = time.monotonic() + timeout
         while time.monotonic() < deadline:
             info = subprocess.run(
                 ["dbus-send", "--session", "--print-reply", "--dest=org.fcitx.Fcitx5",
                  "/controller", "org.fcitx.Fcitx.Controller1.DebugInfo"],
                 env=self.env, capture_output=True, text=True).stdout
-            if any(f"program:{program} " in line and "focus:1" in line
+            if any(re.search(rf"program:(?:{program}) ", line) and "focus:1" in line
                    for line in info.splitlines()):
                 return
             time.sleep(0.2)
@@ -521,7 +522,8 @@ def test_qtquick(session, runs):
         app = subprocess.Popen(["qml6", path], stdout=subprocess.DEVNULL,
                                stderr=subprocess.PIPE, text=True,
                                env=dict(session.env, QT_FORCE_STDERR_LOGGING="1"))
-        session.wait_focus("qml")
+        # Qt 6.12's qml calls itself qml6.
+        session.wait_focus("qml6?")
         # fcitx5-qt reports the field Tab focused after keys already queued,
         # a race fcitx5 has with its own password fields: the password waits.
         session.keys(key_events(name, *speed, rng)
