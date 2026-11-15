@@ -441,6 +441,11 @@ void testSpellCheckAction(Instance *instance) {
     action->activate(&editor);
     editor.type("text ");
     FCITX_ASSERT(editor.text() == "text tẽt text ") << editor.text();
+    // Toggled mid-word, the word goes in rather than away.
+    editor.type("vieetj");
+    action->activate(&editor);
+    action->activate(&editor);
+    FCITX_ASSERT(editor.text() == "text tẽt text việt") << editor.text();
 }
 
 void testInputModes(Instance *instance) {
@@ -874,6 +879,9 @@ void testConvert(Instance *instance) {
     FCITX_ASSERT(editor.press(convertKey) && list());
     FCITX_ASSERT(editor.press(convertKey) && !list());
     FCITX_ASSERT(editor.press(convertKey) && list());
+    // The key's Control, pressed alone on the way, keeps it.
+    editor.press(Key(FcitxKey_Control_L));
+    FCITX_ASSERT(list());
     FCITX_ASSERT(editor.press(Key(FcitxKey_Escape)) && !list());
     FCITX_ASSERT(editor.text() == "abc Tiếng Việt") << editor.text();
     editor.replaceText("123");

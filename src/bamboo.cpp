@@ -1335,6 +1335,10 @@ private:
             closePicker();
             return candidates != nullptr;
         }
+        // The hotkey's modifiers, pressed alone first, keep the list.
+        if (key.isModifier()) {
+            return true;
+        }
         if (checkHotkey(keyEvent, *engine_->config().convertKey)) {
             closePicker();
             keyEvent.filterAndAccept();
@@ -1808,6 +1812,9 @@ void BambooEngine::refreshEngine() {
 
     instance_->inputContextManager().foreach([this](InputContext *ic) {
         auto *state = ic->propertyFor(&factory_);
+        if (ic->hasFocus()) {
+            state->commitBuffer();
+        }
         state->setEngine();
         if (ic->hasFocus()) {
             state->reset();
@@ -1822,6 +1829,9 @@ void BambooEngine::refreshOption() {
     }
     instance_->inputContextManager().foreach([this](InputContext *ic) {
         auto *state = ic->propertyFor(&factory_);
+        if (ic->hasFocus()) {
+            state->commitBuffer();
+        }
         state->setOption();
         if (ic->hasFocus()) {
             state->reset();
