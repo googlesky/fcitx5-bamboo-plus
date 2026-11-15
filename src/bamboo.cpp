@@ -8,6 +8,7 @@
 #include "bamboo.h"
 #include "bambooconfig.h"
 #include <algorithm>
+#include <cctype>
 #include <clipboard_public.h>
 #include <cstdint>
 #include <cstdlib>
@@ -436,6 +437,9 @@ public:
         const bool lastLetter = keyEvent.key().check(FcitxKey_BackSpace) &&
                                 utf8::length(surroundingWord()) == 1 &&
                                 surroundingInSync(surroundingWord());
+        // A space after a letter or digit may start a double space.
+        const bool afterWord =
+            !surroundingWord().empty() || isAlnum(lastCharacter(separator_));
         processing_ = true;
         const bool handled = handleKey(keyEvent, restoreKey, fresh, mayWait);
         processing_ = false;
@@ -463,6 +467,67 @@ public:
         lastKeyToApp_ = !keyEvent.filtered();
         sentenceKeys_ =
             typingKey ? SentenceKeys::Other : nextSentenceKeys(keyEvent.key());
+        if (replaced_ && sym == FcitxKey_space) {
+            sentenceKeys_ = SentenceKeys::Start;
+        }
+        // The keys the application got, for replaceRepeatedKey: after the
+        // key it replaced, a third one is typed as it is.
+        const bool surrounding = lastMethod_ == Method::Surrounding ||
+                                 lastMethod_ == Method::BackSpaces;
+        const bool ended = surroundingWord().empty() && !replaced_ &&
+                           surrounding && !typingKey && plainKey(keyEvent);
+        spaceAfterWord_ = ended && sym == FcitxKey_space && afterWord;
+        hyphenTyped_ = ended && sym == FcitxKey_minus;
+        replaced_ = false;
+        return true;
+    }
+
+    static bool plainKey(const KeyEvent &keyEvent) {
+        return !keyEvent.key().states().testAny(
+            KeyStates{KeyState::Ctrl, KeyState::Alt, KeyState::Super});
+    }
+
+    // Latin letters and digits, and the scripts after them up to the
+    // punctuation: the locale may be "C".
+    static bool isAlnum(std::string_view chr) {
+        if (chr.empty() || !utf8::validate(chr)) {
+            return false;
+        }
+        const auto code = utf8::getChar(chr);
+        return (code < 0x80 && std::isalnum(code)) ||
+               (code >= 0xc0 && code != 0xd7 && code != 0xf7 && code < 0x2000);
+    }
+
+    // A second space after a word types a period, a second hyphen an em
+    // dash, where the application's text is edited in place: the first key
+    // is replaced. A third key is typed as it is. Surrounding Text deletes
+    // through the text the application reported, which must say the same;
+    // BackSpace keys go in order, the keys typed tell. Addresses keep
+    // their hyphens.
+    bool replaceRepeatedKey(KeyEvent &keyEvent, bool fresh) {
+        const auto sym = keyEvent.rawKey().sym();
+        const bool space = sym == FcitxKey_space;
+        if (!(space ? *engine_->config().doubleSpacePeriod
+                    : sym == FcitxKey_minus && *engine_->config().emDash) ||
+            !(space ? spaceAfterWord_ : hyphenTyped_) || !plainKey(keyEvent) ||
+            !surroundingWord().empty() || engine_->isTerminal(ic_) ||
+            ic_->capabilityFlags().test(CapabilityFlag::Url)) {
+            return false;
+        }
+        const bool backSpaces = lastMethod_ == Method::BackSpaces;
+        if (!backSpaces) {
+            const auto before = textBeforeCursor();
+            if (!fresh || !before.ends_with(space ? " " : "-") ||
+                (space && !isAlnum(lastCharacter(
+                              before.substr(0, before.size() - 1))))) {
+                return false;
+            }
+        }
+        noteDeletion(1);
+        changeApplicationText(1, space ? ". " : "\xe2\x80\x94", backSpaces);
+        separator_ = space ? " " : "\xe2\x80\x94";
+        keyEvent.filterAndAccept();
+        replaced_ = true;
         return true;
     }
 
@@ -750,6 +815,10 @@ public:
             return true;
         }
 
+        if (surrounding && replaceRepeatedKey(keyEvent, fresh)) {
+            return true;
+        }
+
         // The word before the cursor is only edited after a key the
         // application handled itself (BackSpace, arrows): typing fast, our
         // own text may not be reported yet. Wayland frontends answer from a
@@ -834,6 +903,8 @@ public:
         lastKeyToApp_ = true;
         surroundingFresh_ = false;
         sentenceKeys_ = SentenceKeys::Other;
+        spaceAfterWord_ = false;
+        hyphenTyped_ = false;
         pickerOpen_ = false;
         // Typed where the cursor was, focus or cursor gone elsewhere.
         heldKeys_.clear();
@@ -1328,6 +1399,12 @@ private:
     std::deque<std::string> editTails_;
     std::optional<std::string> wordStart_;
     SentenceKeys sentenceKeys_ = SentenceKeys::Other;
+    // The last key the application got after a word was a space, or a
+    // hyphen, see replaceRepeatedKey.
+    bool spaceAfterWord_ = false;
+    bool hyphenTyped_ = false;
+    // This key replaced the one before it.
+    bool replaced_ = false;
     // Characters before the cursor a conversion replaces.
     int convertDelete_ = 0;
 };

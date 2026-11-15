@@ -29,13 +29,13 @@ msgid ""
 "applications, Input Method Window for any."
 msgstr ""
 
-#: src/bambooconfig.h:260
+#: src/bambooconfig.h:264
 msgid ""
 "After BackSpace, arrows or a click, a key right after a word edits it like "
 "one being typed"
 msgstr ""
 
-#: src/bambooconfig.h:289
+#: src/bambooconfig.h:293
 msgid "Allow type with more freedom"
 msgstr ""
 
@@ -59,7 +59,7 @@ msgstr ""
 msgid "Bamboo Wrapper For Fcitx"
 msgstr ""
 
-#: src/bambooconfig.h:284
+#: src/bambooconfig.h:288
 msgid "Capitalize Macro"
 msgstr ""
 
@@ -71,7 +71,7 @@ msgstr ""
 msgid "Capitalized words"
 msgstr ""
 
-#: src/bambooconfig.h:265
+#: src/bambooconfig.h:269
 msgid "Choose Typing Mode for Application"
 msgstr ""
 
@@ -79,11 +79,11 @@ msgstr ""
 msgid "Convert"
 msgstr ""
 
-#: src/bambooconfig.h:271
+#: src/bambooconfig.h:275
 msgid "Convert the selection or the word before the cursor"
 msgstr ""
 
-#: src/bambooconfig.h:98 src/bambooconfig.h:294
+#: src/bambooconfig.h:98 src/bambooconfig.h:298
 msgid "Custom Keymap"
 msgstr ""
 
@@ -99,15 +99,19 @@ msgstr ""
 msgid "Disable Vietnamese in email, number and phone fields"
 msgstr ""
 
-#: src/bambooconfig.h:256
+#: src/bambooconfig.h:254
+msgid "Double space types a period"
+msgstr ""
+
+#: src/bambooconfig.h:260
 msgid "Edit the word before the cursor"
 msgstr ""
 
-#: src/bambooconfig.h:283
+#: src/bambooconfig.h:287
 msgid "Enable Macro"
 msgstr ""
 
-#: src/bambooconfig.h:278
+#: src/bambooconfig.h:282
 msgid "Enable spell check"
 msgstr ""
 
@@ -188,7 +192,7 @@ msgstr ""
 msgid "Qt terminals through fcitx5-qt (Konsole)"
 msgstr ""
 
-#: src/bambooconfig.h:291
+#: src/bambooconfig.h:295
 msgid "Quick Typing"
 msgstr ""
 
@@ -230,6 +234,10 @@ msgstr ""
 msgid "Too long to convert"
 msgstr ""
 
+#: src/bambooconfig.h:255
+msgid "Two hyphens type an em dash"
+msgstr ""
+
 #: src/bamboo.cpp:132
 msgid "Typed again with the input method"
 msgstr ""
@@ -254,7 +262,7 @@ msgstr ""
 msgid "Typing waits for the application"
 msgstr ""
 
-#: src/bambooconfig.h:293
+#: src/bambooconfig.h:297
 msgid "Underline the preedit text"
 msgstr ""
 
@@ -262,11 +270,11 @@ msgstr ""
 msgid "Upper case"
 msgstr ""
 
-#: src/bambooconfig.h:280
+#: src/bambooconfig.h:284
 msgid "Use dictionary for spell check"
 msgstr ""
 
-#: src/bambooconfig.h:287
+#: src/bambooconfig.h:291
 msgid "Use oà, _uý (instead of òa, úy)"
 msgstr ""
 
@@ -292,7 +300,7 @@ msgstr ""
 msgid "Without diacritics"
 msgstr ""
 
-#: src/bambooconfig.h:282
+#: src/bambooconfig.h:286
 msgid "Words kept by spell check"
 msgstr ""
 

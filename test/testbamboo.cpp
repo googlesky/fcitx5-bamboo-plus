@@ -1023,6 +1023,129 @@ void testConvert(Instance *instance) {
     }
 }
 
+// Opt in: a double space types a period and two hyphens an em dash, where the
+// application's text is edited in place.
+void testDoubleSpacePeriodAndEmDash(Instance *instance) {
+    auto *bamboo = instance->addonManager().addon("bamboo");
+    RawConfig appModes;
+    appModes.setValueByPath("AppMode/0/Program", "surrounding");
+    appModes.setValueByPath("AppMode/0/Mode", "Surrounding Text");
+    appModes.setValueByPath("AppMode/1/Program", "backspace");
+    appModes.setValueByPath("AppMode/1/Mode", "BackSpace");
+    appModes.setValueByPath("AppMode/2/Program", "preedit");
+    appModes.setValueByPath("AppMode/2/Mode", "Preedit");
+    appModes.setValueByPath("AppMode/3/Program", "window");
+    appModes.setValueByPath("AppMode/3/Mode", "Input Method Window");
+    bamboo->setSubConfig("app_modes", appModes);
+    {
+        FakeEditor editor(instance, "surrounding", PreeditCaps);
+        editor.type("abc  d--");
+        FCITX_ASSERT(editor.text() == "abc  d--") << editor.text();
+    }
+    RawConfig config;
+    config.setValueByPath("DoubleSpacePeriod", "True");
+    config.setValueByPath("EmDash", "True");
+    bamboo->setConfig(config);
+    {
+        FakeEditor editor(instance, "surrounding", PreeditCaps);
+        editor.type("xin chao  ");
+        FCITX_ASSERT(editor.text() == "xin chao. ") << editor.text();
+    }
+    {
+        // A sentence starts after the period, like after a typed one.
+        config.setValueByPath("CapitalizeSentences", "True");
+        bamboo->setConfig(config);
+        FakeEditor editor(instance, "surrounding", PreeditCaps);
+        editor.type("xin chao  toi");
+        config.setValueByPath("CapitalizeSentences", "False");
+        bamboo->setConfig(config);
+        FCITX_ASSERT(editor.text() == "Xin chao. Toi") << editor.text();
+    }
+    {
+        FakeEditor editor(instance, "surrounding", PreeditCaps);
+        editor.type("abc   ");
+        FCITX_ASSERT(editor.text() == "abc.  ") << editor.text();
+    }
+    {
+        FakeEditor editor(instance, "surrounding", PreeditCaps);
+        editor.type("tieengs  ");
+        FCITX_ASSERT(editor.text() == "tiếng. ") << editor.text();
+    }
+    {
+        // A space after a space, a hyphen or a sentence's end stays.
+        FakeEditor editor(instance, "surrounding", PreeditCaps);
+        editor.type("a, b- c. d   ");
+        FCITX_ASSERT(editor.text() == "a, b- c. d.  ") << editor.text();
+        editor.replaceText("");
+        editor.type("  ");
+        FCITX_ASSERT(editor.text() == "  ") << editor.text();
+    }
+    {
+        // Addresses keep their hyphens.
+        FakeEditor editor(instance, "surrounding",
+                          PreeditCaps | CapabilityFlag::Url);
+        editor.type("a--b");
+        FCITX_ASSERT(editor.text() == "a--b") << editor.text();
+    }
+    {
+        FakeEditor editor(instance, "surrounding", PreeditCaps);
+        editor.type("a--b");
+        FCITX_ASSERT(editor.text() == "a—b") << editor.text();
+        editor.replaceText("");
+        editor.type("a---");
+        FCITX_ASSERT(editor.text() == "a—-") << editor.text();
+        editor.replaceText("");
+        editor.type("a -- b");
+        FCITX_ASSERT(editor.text() == "a — b") << editor.text();
+    }
+    {
+        // A text reported late is not trusted.
+        FakeEditor editor(instance, "surrounding", PreeditCaps);
+        editor.type("abc");
+        editor.setReportSurrounding(false);
+        editor.type("  ");
+        FCITX_ASSERT(editor.text() == "abc  ") << editor.text();
+        editor.setReportSurrounding(true);
+        editor.replaceText("");
+        editor.type("a");
+        editor.setReportSurrounding(false);
+        editor.type("--");
+        FCITX_ASSERT(editor.text() == "a--") << editor.text();
+    }
+    {
+        // BackSpace keys are forwarded in order: the keys tell.
+        FakeEditor editor(instance, "backspace", PreeditCaps, true, "wayland");
+        editor.type("xin chao  ");
+        FCITX_ASSERT(editor.text() == "xin chao. ") << editor.text();
+        editor.replaceText("");
+        editor.type("a--");
+        FCITX_ASSERT(editor.text() == "a—") << editor.text();
+        editor.replaceText("");
+        editor.type("tieengs  ");
+        FCITX_ASSERT(editor.text() == "tiếng. ") << editor.text();
+    }
+    for (const char *program :
+         {"surrounding", "backspace", "preedit", "window"}) {
+        // Terminals and the modes editing no text in place type as keyed.
+        const bool terminal = std::string_view(program) == "surrounding" ||
+                              std::string_view(program) == "backspace";
+        FakeEditor editor(
+            instance, program,
+            terminal ? PreeditCaps | CapabilityFlag::Terminal : PreeditCaps,
+            true,
+            std::string_view(program) == "backspace" ? "wayland"
+                                                     : "bambootest");
+        editor.type("abc  d--");
+        FCITX_ASSERT(editor.text() + editor.preedit() + editor.panelPreedit() ==
+                     "abc  d--")
+            << program << " " << editor.text();
+    }
+    config.setValueByPath("DoubleSpacePeriod", "False");
+    config.setValueByPath("EmDash", "False");
+    bamboo->setConfig(config);
+    clearList(bamboo, "app_modes", "AppMode");
+}
+
 // Surrounding Text mode never underlines the word being typed.
 void testNoUnderline(Instance *instance) {
     auto *bamboo = instance->addonManager().addon("bamboo");
@@ -2365,6 +2488,7 @@ int main() {
         testQuickTyping(&instance);
         testCapitalizeSentences(&instance);
         testConvert(&instance);
+        testDoubleSpacePeriodAndEmDash(&instance);
         testNoUnderline(&instance);
         testSlowReports(&instance, steps);
         steps.add(0, [&instance]() {

@@ -97,6 +97,9 @@ Method Window for any.
 - Words kept by spell check, for proper nouns like Krông.
 - Macros take `$DATE` and `$TIME` for the current date as dd/MM/yyyy and the
   time as HH:mm: "hôm nay $DATE" types "hôm nay 15/11/2026".
+- Off by default: a double space types a period, two hyphens an em dash, where
+  the text is edited in place (Surrounding Text and BackSpace modes, not
+  terminals).
 - After BackSpace, arrows or a click, a key right after a word edits it like
   one being typed: "viêt", BackSpace over the space, then `j` gives "việt".
   It needs the application to report its text (GTK applications through

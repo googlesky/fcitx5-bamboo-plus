@@ -250,6 +250,10 @@ FCITX_CONFIGURATION(
     Option<bool> capitalizeSentences{
         this, "CapitalizeSentences",
         _("Capitalize the first letter of sentences"), false};
+    Option<bool> doubleSpacePeriod{this, "DoubleSpacePeriod",
+                                   _("Double space types a period"), false};
+    Option<bool> emDash{this, "EmDash", _("Two hyphens type an em dash"),
+                        false};
     OptionWithAnnotation<bool, ToolTipAnnotation> editWordBeforeCursor{
         this,
         "EditWordBeforeCursor",
