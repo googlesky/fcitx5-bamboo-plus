@@ -10,6 +10,7 @@ package main
 import (
 	"bamboo-core"
 	"strings"
+	"time"
 	"unicode"
 	"unicode/utf8"
 )
@@ -180,14 +181,22 @@ func (e *FcitxBambooEngine) preeditProcessKeyEvent(keyVal uint32, state uint32) 
 	return isPrintableKey
 }
 
+// The clock, for tests to fix.
+var now = time.Now
+
 func (e *FcitxBambooEngine) expandMacro(str string) string {
 	var macroText = e.macroTable.GetText(str, e.autoCapitalizeMacro)
+	// Before the case, which would turn the placeholders into "$date".
+	if strings.Contains(macroText, "$") {
+		var t = now()
+		macroText = strings.NewReplacer("$DATE", t.Format("02/01/2006"), "$TIME", t.Format("15:04")).Replace(macroText)
+	}
 	if e.autoCapitalizeMacro {
 		switch determineMacroCase(str) {
 		case VnCaseAllSmall:
-			return strings.ToLower(macroText)
+			macroText = strings.ToLower(macroText)
 		case VnCaseAllCapital:
-			return strings.ToUpper(macroText)
+			macroText = strings.ToUpper(macroText)
 		}
 	}
 	return macroText

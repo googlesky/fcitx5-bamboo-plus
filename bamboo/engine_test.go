@@ -13,6 +13,7 @@ import (
 	"sort"
 	"strings"
 	"testing"
+	"time"
 )
 
 const (
@@ -136,6 +137,19 @@ func TestPreeditEngine(t *testing.T) {
 				t.Errorf("text = %q, want %q", string(a.text), tc.text)
 			}
 		})
+	}
+}
+
+// Macros take the date and time as Vietnamese write them.
+func TestMacroDateTime(t *testing.T) {
+	defer func(f func() time.Time) { now = f }(now)
+	now = func() time.Time { return time.Date(2026, 11, 15, 9, 5, 0, 0, time.Local) }
+	a := newTestApp("Telex", [][2]string{{"nay", "hôm nay $DATE lúc $TIME"}}, false)
+	for _, c := range "nay " {
+		a.press(uint32(c), 0)
+	}
+	if want := "hôm nay 15/11/2026 lúc 09:05 "; string(a.text) != want {
+		t.Errorf("text = %q, want %q", string(a.text), want)
 	}
 }
 

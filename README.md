@@ -95,6 +95,8 @@ Method Window for any.
   applications reporting themselves as terminals, or flagged so in the modes
   per application.
 - Words kept by spell check, for proper nouns like Krông.
+- Macros take `$DATE` and `$TIME` for the current date as dd/MM/yyyy and the
+  time as HH:mm: "hôm nay $DATE" types "hôm nay 15/11/2026".
 - After BackSpace, arrows or a click, a key right after a word edits it like
   one being typed: "viêt", BackSpace over the space, then `j` gives "việt".
   It needs the application to report its text (GTK applications through
